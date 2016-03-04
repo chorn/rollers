@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# This is pretty awful.
+
 module Roller
   class Expression
     attr_reader :sets, :iterations, :die, :modifier, :drop_lowest, :reroll_ones, :total
