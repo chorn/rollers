@@ -4,7 +4,7 @@ Back in the days of CVS, I wrote a program in Perl to do something nerdy. `roll.
 
 Since then, when I learn a new programming language, I usually rewrite this same problem in the new language. This tool, although small, has some complexity to it, and it's kind of mathy, which is something most languages are good at. The downside is that the first foray into a new language is usually terrible code.
 
-## What does is do
+## What does this do?
 
 ```
 $ roll.pl 1d20
