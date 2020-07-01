@@ -104,7 +104,11 @@ func rollAll(expression Expression) []string {
 	return rolls
 }
 
-func Roll(raw string) []string {
-	expression := Parse(raw)
-	return rollAll(expression)
+func Roll(raw string) ([]string, error) {
+	expression, err := Parse(raw)
+
+	if err != nil {
+		return []string{}, err
+	}
+	return rollAll(expression), nil
 }

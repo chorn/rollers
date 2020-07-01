@@ -29,7 +29,12 @@ func main() {
 	}
 
 	for _, raw := range os.Args[1:] {
-		rolls := dice.Roll(raw)
-		fmt.Println(strings.Join(rolls, "\n"))
+		rolls, err := dice.Roll(raw)
+
+		if err != nil {
+			fmt.Println("Error with input: ", raw, " -> ", err)
+		} else {
+			fmt.Println(strings.Join(rolls, "\n"))
+		}
 	}
 }

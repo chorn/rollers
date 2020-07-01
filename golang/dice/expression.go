@@ -1,9 +1,7 @@
 package dice
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,14 +17,10 @@ type Expression struct {
 	Pretty     string
 }
 
-func parseIntFromString(str string) int {
+func parseIntFromString(str string) (int, error) {
 	asInt, err := strconv.ParseInt(str, 0, 32)
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return int(asInt)
+	return int(asInt), err
 }
 
 func splitRawExpression(raw string) []string {
@@ -46,12 +40,13 @@ func splitRawExpression(raw string) []string {
 	return split
 }
 
-func parseFromArgs(expressionArgs []string) Expression {
+func parseFromArgs(expressionArgs []string) (Expression, error) {
+	var err error
 	exp := Expression{
-		Iterations: 1,
+		Iterations: 0,
 		Modifier:   0,
-		Casts:      1,
-		Die:        20,
+		Casts:      0,
+		Die:        0,
 		DropLowest: false,
 		RerollOnes: false,
 	}
@@ -69,22 +64,34 @@ func parseFromArgs(expressionArgs []string) Expression {
 
 		if arg == "D" || arg == "d" {
 			if i > 0 {
-				exp.Casts = parseIntFromString(expressionArgs[i-1])
+				exp.Casts, err = parseIntFromString(expressionArgs[i-1])
+				if err != nil {
+					return exp, fmt.Errorf("Can't parse Cast #")
+				}
 			}
 			if i < len(expressionArgs)-1 {
-				exp.Die = parseIntFromString(expressionArgs[i+1])
+				exp.Die, err = parseIntFromString(expressionArgs[i+1])
+				if err != nil {
+					return exp, fmt.Errorf("Can't parse Die #")
+				}
 			}
 		}
 
 		if arg == "X" || arg == "x" {
 			if i == 0 {
-				log.Fatal(errors.New("You can't start with 'x'"))
+				return exp, fmt.Errorf("Missing the Iteration # before the 'x'")
 			}
-			exp.Iterations = parseIntFromString(expressionArgs[i-1])
+			exp.Iterations, err = parseIntFromString(expressionArgs[i-1])
+			if err != nil {
+				return exp, fmt.Errorf("Can't parse Iteration #")
+			}
 		}
 
 		if string(arg[0]) == "+" || string(arg[0]) == "-" {
-			exp.Modifier = parseIntFromString(arg)
+			exp.Modifier, err = parseIntFromString(arg)
+			if err != nil {
+				return exp, fmt.Errorf("Can't parse Modifier #")
+			}
 		}
 	}
 
@@ -93,11 +100,15 @@ func parseFromArgs(expressionArgs []string) Expression {
 	}
 
 	if exp.Iterations > 100 {
-		exp.Iterations = 100
+		return exp, fmt.Errorf("Max Iterations is 100.")
+	}
+
+	if exp.Die <= 10 {
+		return exp, fmt.Errorf("Missing or invalid Die #")
 	}
 
 	if exp.Die > 10000 {
-		exp.Die = 10000
+		return exp, fmt.Errorf("Max Die is 10000")
 	}
 
 	exp.Pretty = fmt.Sprintf("%dd%d", exp.Casts, exp.Die)
@@ -114,10 +125,10 @@ func parseFromArgs(expressionArgs []string) Expression {
 		exp.Pretty = exp.Pretty + "r"
 	}
 
-	return exp
+	return exp, nil
 }
 
-func Parse(raw string) Expression {
+func Parse(raw string) (Expression, error) {
 	expressionArgs := splitRawExpression(raw)
 	return parseFromArgs(expressionArgs)
 }
