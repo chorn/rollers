@@ -103,7 +103,7 @@ func parseFromArgs(expressionArgs []string) (Expression, error) {
 		return exp, fmt.Errorf("Max Iterations is 100.")
 	}
 
-	if exp.Die <= 10 {
+	if exp.Die <= 0 {
 		return exp, fmt.Errorf("Missing or invalid Die #")
 	}
 
