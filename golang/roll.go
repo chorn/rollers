@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"github.com/chorn/rollers/golang/roll/dice"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 )
 
-func usage() {
+var waitGroup sync.WaitGroup
 
+func usage() {
 	fmt.Println("Usage: roll <expression> [expression ...]")
 	fmt.Println("  <expression> ::= [iterations] <cast> [modifier] [rerollOnes]")
 	fmt.Println("  <iterations  ::= <digits> x")
@@ -20,12 +23,15 @@ func usage() {
 	fmt.Println("  <rerollOnes> ::= r")
 	fmt.Println("")
 	fmt.Println("  Examples: 1d20 or 6x4D6 or 2d8+4r")
+	defer waitGroup.Done()
 	os.Exit(0)
+
 }
 
 func main() {
 	rawExpressions := os.Args[1:]
 	expressionCount := len(rawExpressions)
+	runtime.GOMAXPROCS(expressionCount)
 
 	if len(rawExpressions) == 0 {
 		usage()
@@ -44,7 +50,12 @@ func main() {
 	}
 
 	for _, expression := range expressions {
-		rolls := dice.Roll(expression)
-		fmt.Println(strings.Join(rolls, "\n"))
+		waitGroup.Add(1)
+		go func(expression dice.Expression) {
+			defer waitGroup.Done()
+			dice.RollAndPrint(expression)
+		}(expression)
 	}
+
+	waitGroup.Wait()
 }

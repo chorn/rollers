@@ -46,7 +46,7 @@ func split(raw RawExpression) ExpressionArgs {
 func parseFromArgs(expressionArgs ExpressionArgs) (Expression, error) {
 	var err error
 	exp := Expression{
-		Iterations: 0,
+		Iterations: 1,
 		Modifier:   0,
 		Casts:      0,
 		Die:        0,

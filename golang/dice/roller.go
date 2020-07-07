@@ -103,3 +103,8 @@ func Roll(expression Expression) []string {
 
 	return rolls
 }
+
+func RollAndPrint(expression Expression) {
+	rolls := Roll(expression)
+	fmt.Println(strings.Join(rolls, "\n"))
+}
