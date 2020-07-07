@@ -24,17 +24,27 @@ func usage() {
 }
 
 func main() {
-	if len(os.Args[1:]) == 0 {
+	rawExpressions := os.Args[1:]
+	expressionCount := len(rawExpressions)
+
+	if len(rawExpressions) == 0 {
 		usage()
 	}
 
-	for _, raw := range os.Args[1:] {
-		rolls, err := dice.Roll(raw)
+	expressions := make([]dice.Expression, expressionCount)
+
+	for i := 0; i < expressionCount; i++ {
+		expression, err := dice.New(dice.RawExpression(rawExpressions[i]))
+		expressions[i] = *expression
 
 		if err != nil {
-			fmt.Println("Error with input: ", raw, " -> ", err)
-		} else {
-			fmt.Println(strings.Join(rolls, "\n"))
+			fmt.Println("Error with input:", strings.TrimSpace(rawExpressions[i]), "-> ", err)
+			usage()
 		}
+	}
+
+	for _, expression := range expressions {
+		rolls := dice.Roll(expression)
+		fmt.Println(strings.Join(rolls, "\n"))
 	}
 }

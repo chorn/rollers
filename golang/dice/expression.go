@@ -17,20 +17,23 @@ type Expression struct {
 	Pretty     string
 }
 
+type RawExpression string
+type ExpressionArgs []string
+
 func parseIntFromString(str string) (int, error) {
 	asInt, err := strconv.ParseInt(str, 0, 32)
 
 	return int(asInt), err
 }
 
-func splitRawExpression(raw string) []string {
+func split(raw RawExpression) ExpressionArgs {
 	cleaner1 := regexp.MustCompile(`\s+`)
 	cleaner2 := regexp.MustCompile(`[^xXdDrR\d\+\-]`)
 	spacer1 := regexp.MustCompile(`(?P<modifier>[\-\+]*)(?P<digits>\d+)`)
 	spacer2 := regexp.MustCompile(`(?P<xd>[xXdD]+)(?P<digits>\d+)`)
 	deduper := regexp.MustCompile(`([dD]|[xX]|[rR]|\+|\-)+`)
 
-	cleaned1 := cleaner1.ReplaceAllString(raw, "")
+	cleaned1 := cleaner1.ReplaceAllString(string(raw), "")
 	cleaned2 := cleaner2.ReplaceAllString(cleaned1, "")
 	deduped := deduper.ReplaceAllString(cleaned2, "${1}")
 	spaced1 := spacer1.ReplaceAllString(deduped, "${modifier}${digits} ")
@@ -40,7 +43,7 @@ func splitRawExpression(raw string) []string {
 	return split
 }
 
-func parseFromArgs(expressionArgs []string) (Expression, error) {
+func parseFromArgs(expressionArgs ExpressionArgs) (Expression, error) {
 	var err error
 	exp := Expression{
 		Iterations: 0,
@@ -128,7 +131,8 @@ func parseFromArgs(expressionArgs []string) (Expression, error) {
 	return exp, nil
 }
 
-func Parse(raw string) (Expression, error) {
-	expressionArgs := splitRawExpression(raw)
-	return parseFromArgs(expressionArgs)
+func New(raw RawExpression) (*Expression, error) {
+	args := split(raw)
+	expression, err := parseFromArgs(args)
+	return &expression, err
 }

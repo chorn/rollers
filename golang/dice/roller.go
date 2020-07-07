@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type DiceCast struct {
+type ExpressionResult struct {
 	rolls    []int
 	results  []string
 	subTotal int
@@ -24,7 +24,7 @@ func random(max int) int {
 	return int(startsAtZero.Int64()) + 1
 }
 
-func roll(expression Expression) DiceCast {
+func roll(expression Expression) ExpressionResult {
 	rolls := make([]int, expression.Casts)
 	results := make([]string, expression.Casts)
 	rollStrLength := len(fmt.Sprintf("%d", expression.Die))
@@ -62,7 +62,7 @@ func roll(expression Expression) DiceCast {
 		}
 	}
 
-	cast := DiceCast{
+	cast := ExpressionResult{
 		rolls:    rolls,
 		results:  results,
 		modifier: expression.Modifier,
@@ -93,22 +93,13 @@ func roll(expression Expression) DiceCast {
 	return cast
 }
 
-func rollAll(expression Expression) []string {
+func Roll(expression Expression) []string {
 	rolls := make([]string, expression.Iterations)
 
 	for i := 0; i < expression.Iterations; i++ {
-		cast := roll(expression)
-		rolls[i] = cast.pretty
+		expressionResult := roll(expression)
+		rolls[i] = expressionResult.pretty
 	}
 
 	return rolls
-}
-
-func Roll(raw string) ([]string, error) {
-	expression, err := Parse(raw)
-
-	if err != nil {
-		return []string{}, err
-	}
-	return rollAll(expression), nil
 }
