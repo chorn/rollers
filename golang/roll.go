@@ -14,30 +14,88 @@ import (
 	"sync"
 )
 
-type ExpressionResult struct {
-	rolls    []int
-	results  []string
-	subTotal int
-	total    int
-	modifier int
-	pretty   string
+type RawExpression string
+type ExpressionArgs []string
+
+type Expression struct {
+	Iterations int
+	Modifier   int
+	Casts      int
+	Die        int
+	DropLowest bool
+	RerollOnes bool
 }
 
-func random(max int) int {
-	bigMax := big.NewInt(int64(max))
-	startsAtZero, _ := rand.Int(rand.Reader, bigMax)
-	return int(startsAtZero.Int64()) + 1
+func (exp Expression) String() string {
+	str := fmt.Sprintf("%dd%d", exp.Casts, exp.Die)
+
+	if exp.Modifier < 0 {
+		str = str + fmt.Sprintf("%d", exp.Modifier)
+	}
+
+	if exp.Modifier > 0 {
+		str = str + fmt.Sprintf("+%d", exp.Modifier)
+	}
+
+	if exp.RerollOnes {
+		str = str + "r"
+	}
+
+	return str
+}
+
+type ExpressionResult struct {
+	expression *Expression
+	rolls      []int
+	dropIndex  int
+	subTotal   int
+	total      int
+}
+
+func (er ExpressionResult) String() string {
+	exp := *er.expression
+	results := make([]string, len(er.rolls))
+	rollStrLength := len(fmt.Sprintf("%d", exp.Die))
+	rollFmt := fmt.Sprintf("%%%ds", rollStrLength+2)
+	subTotalFmt := fmt.Sprintf("%%%dd", rollStrLength+1)
+	subTotalString := fmt.Sprintf(subTotalFmt, er.subTotal)
+
+	for i := 0; i < len(er.rolls); i++ {
+		if er.dropIndex == i {
+			results[i] = fmt.Sprintf("[%d]", er.rolls[i])
+		} else {
+			results[i] = fmt.Sprintf(" %d ", er.rolls[i])
+		}
+
+		results[i] = fmt.Sprintf(rollFmt, results[i])
+	}
+
+	str := fmt.Sprintf("%s: %s = %s", exp.String(), strings.Join(results, " + "), subTotalString)
+
+	if exp.Modifier > 0 {
+		str = fmt.Sprintf("%s + %d = %d", str, exp.Modifier, er.total)
+	}
+
+	if exp.Modifier < 0 {
+		str = fmt.Sprintf("%s - %d = %d", str, int(math.Abs(float64(exp.Modifier))), er.total)
+	}
+
+	return str
 }
 
 func roll(expression Expression) ExpressionResult {
 	rolls := make([]int, expression.Casts)
-	results := make([]string, expression.Casts)
-	rollStrLength := len(fmt.Sprintf("%d", expression.Die))
-	rollFmt := fmt.Sprintf("%%%ds", rollStrLength+2)
-	subTotalFmt := fmt.Sprintf("%%%dd", rollStrLength+1)
+	expressionResult := ExpressionResult{
+		expression: &expression,
+		rolls:      rolls,
+		subTotal:   0,
+		total:      0,
+		dropIndex:  -1,
+	}
 
 	for i := 0; i < expression.Casts; i++ {
 		var dieRoll int
+
 		for {
 			dieRoll = random(expression.Die)
 
@@ -47,7 +105,6 @@ func roll(expression Expression) ExpressionResult {
 		}
 
 		rolls[i] = dieRoll
-		results[i] = fmt.Sprintf(" %d ", dieRoll)
 	}
 
 	if expression.DropLowest {
@@ -58,44 +115,22 @@ func roll(expression Expression) ExpressionResult {
 		dropped := false
 
 		for i := 0; i < expression.Casts; i++ {
-
 			if !dropped && (rolls[i] == lowest) {
 				dropped = true
-				results[i] = fmt.Sprintf("[%d]", rolls[i])
-				rolls[i] = 0
+				expressionResult.dropIndex = i
 			}
 		}
 	}
 
-	cast := ExpressionResult{
-		rolls:    rolls,
-		results:  results,
-		modifier: expression.Modifier,
-		total:    0,
-	}
-
 	for i := 0; i < expression.Casts; i++ {
-		results[i] = fmt.Sprintf(rollFmt, results[i])
-		cast.subTotal += rolls[i]
+		if expressionResult.dropIndex != i {
+			expressionResult.subTotal += rolls[i]
+		}
 	}
 
-	cast.total = cast.subTotal + expression.Modifier
+	expressionResult.total = expressionResult.subTotal + expression.Modifier
 
-	prettyResults := strings.Join(results, " + ")
-
-	subTotalString := fmt.Sprintf(subTotalFmt, cast.subTotal)
-
-	cast.pretty = fmt.Sprintf("%s : %s = %s", expression.Pretty, prettyResults, subTotalString)
-
-	if expression.Modifier > 0 {
-		cast.pretty = fmt.Sprintf("%s + %d = %d", cast.pretty, expression.Modifier, cast.total)
-	}
-
-	if expression.Modifier < 0 {
-		cast.pretty = fmt.Sprintf("%s - %d = %d", cast.pretty, int(math.Abs(float64(expression.Modifier))), cast.total)
-	}
-
-	return cast
+	return expressionResult
 }
 
 func Roll(expression Expression) []string {
@@ -103,7 +138,7 @@ func Roll(expression Expression) []string {
 
 	for i := 0; i < expression.Iterations; i++ {
 		expressionResult := roll(expression)
-		rolls[i] = expressionResult.pretty
+		rolls[i] = expressionResult.String()
 	}
 
 	return rolls
@@ -112,25 +147,6 @@ func Roll(expression Expression) []string {
 func RollAndPrint(expression Expression) {
 	rolls := Roll(expression)
 	fmt.Println(strings.Join(rolls, "\n"))
-}
-
-type Expression struct {
-	Iterations int
-	Modifier   int
-	Casts      int
-	Die        int
-	DropLowest bool
-	RerollOnes bool
-	Pretty     string
-}
-
-type RawExpression string
-type ExpressionArgs []string
-
-func parseIntFromString(str string) (int, error) {
-	asInt, err := strconv.ParseInt(str, 0, 32)
-
-	return int(asInt), err
 }
 
 func split(raw RawExpression) ExpressionArgs {
@@ -221,20 +237,6 @@ func parseFromArgs(expressionArgs ExpressionArgs) (Expression, error) {
 		return exp, fmt.Errorf("Max Die is 10000")
 	}
 
-	exp.Pretty = fmt.Sprintf("%dd%d", exp.Casts, exp.Die)
-
-	if exp.Modifier < 0 {
-		exp.Pretty = exp.Pretty + fmt.Sprintf("%d", exp.Modifier)
-	}
-
-	if exp.Modifier > 0 {
-		exp.Pretty = exp.Pretty + fmt.Sprintf("+%d", exp.Modifier)
-	}
-
-	if exp.RerollOnes {
-		exp.Pretty = exp.Pretty + "r"
-	}
-
 	return exp, nil
 }
 
@@ -243,8 +245,6 @@ func New(raw RawExpression) (*Expression, error) {
 	expression, err := parseFromArgs(args)
 	return &expression, err
 }
-
-var waitGroup sync.WaitGroup
 
 func usage() {
 	fmt.Println("Usage: roll <expression> [expression ...]")
@@ -258,10 +258,11 @@ func usage() {
 	fmt.Println("  <rerollOnes> ::= r")
 	fmt.Println("")
 	fmt.Println("  Examples: 1d20 or 6x4D6 or 2d8+4r")
-	defer waitGroup.Done()
+	waitGroup.Done()
 	os.Exit(0)
-
 }
+
+var waitGroup sync.WaitGroup
 
 func main() {
 	rawExpressions := os.Args[1:]
@@ -287,10 +288,23 @@ func main() {
 	for _, expression := range expressions {
 		waitGroup.Add(1)
 		go func(expression Expression) {
-			defer waitGroup.Done()
 			RollAndPrint(expression)
+			waitGroup.Done()
 		}(expression)
 	}
 
 	waitGroup.Wait()
+}
+
+func random(max int) int {
+	bigMax := big.NewInt(int64(max))
+	startsAtZero, _ := rand.Int(rand.Reader, bigMax)
+
+	return int(startsAtZero.Int64()) + 1
+}
+
+func parseIntFromString(str string) (int, error) {
+	asInt, err := strconv.ParseInt(str, 0, 32)
+
+	return int(asInt), err
 }
